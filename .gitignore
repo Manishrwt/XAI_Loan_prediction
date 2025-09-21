@@ -1,0 +1,4 @@
+loan_env/
+__pycache__/
+*.dylib
+*.so
