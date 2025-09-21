@@ -1,0 +1,74 @@
+# ----------------------------
+# Core ML & Data Processing
+# ----------------------------
+numpy
+pandas
+scikit-learn
+
+# ----------------------------
+# Gradient Boosting Models
+# ----------------------------
+catboost
+xgboost==1.7.6
+# lightgbm
+# Notes:
+# - On Windows/Linux: install LightGBM normally (pip install lightgbm).
+# - On macOS (without Homebrew): skip LightGBM or use
+#       pip install lightgbm --config-settings=cmake.define.USE_OPENMP=OFF
+#   to avoid libomp.dylib errors.
+
+# ----------------------------
+# Deep Learning for Tabular Data
+# ----------------------------
+torch                    # PyTorch backend (needed for TabNet)
+pytorch-tabnet           # TabNet model (neural network for tabular data)
+
+# ----------------------------
+# Explainability
+# ----------------------------
+shap                     # SHAP values (global + local explanations)
+lime                     # LIME explanations for individual predictions
+
+# ----------------------------
+# Fairness
+# ----------------------------
+fairlearn                # Fairness metrics (Statistical Parity, Equalized Odds, etc.)
+# aif360 (Optional, very heavy) – only add if you want IBM’s AI Fairness 360
+
+# ----------------------------
+# Visualization
+# ----------------------------
+matplotlib
+seaborn
+
+# ----------------------------
+# App & UI
+# ----------------------------
+streamlit
+streamlit-option-menu
+
+# ----------------------------
+# Report Generation
+# ----------------------------
+reportlab
+
+# ----------------------------
+# Environment & Config
+# ----------------------------
+python-dotenv
+
+# ----------------------------
+# Generative AI (Google Gemini + Perplexity)
+# ----------------------------
+google-generativeai       # Google Gemini API
+openai                    # Perplexity API (uses OpenAI-compatible SDK format)
+
+# ----------------------------
+# Notes
+# ----------------------------
+# - CatBoost: works everywhere (no extra config).
+# - XGBoost: pinned to 1.7.6 for macOS compatibility.
+# - LightGBM: optional. Works on Windows/Linux but tricky on macOS.
+# - On macOS: safest to skip LightGBM and rely on CatBoost + XGBoost + TabNet.
+# - Set GEMINI_API_KEY and PERPLEXITY_API_KEY in your .env file.
+
