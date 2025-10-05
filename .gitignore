@@ -1,29 +1,11 @@
-# Python cache
+# Ignore environment and cache files only
+loan_env/
 __pycache__/
 *.pyc
 *.pyo
-.DS_Store
+*.log
 
-# Virtual environments
-loan_env/
-env/
-venv/
-.venv/
-
-# Heavy artifacts
-models/
-processed/
-reports/
-*.pkl
-*.csv
-*.pdf
-*.png
-*.jpg
-*.jpeg
-*.json
-
-# Streamlit cache/logs
-.streamlit/
-logs/
-cache/
-.env
+# Keep models & processed files (needed for Streamlit Cloud)
+# models/
+# processed/
+# reports/
