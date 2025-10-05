@@ -1,26 +1,19 @@
-# ===== Python & Environment =====
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-*.db
-*.env
-*.log
 .DS_Store
 
-# ===== Virtual Environment =====
+# Virtual environments
 loan_env/
-venv/
 env/
-*.egg-info/
-.eggs/
-build/
-dist/
+venv/
+.venv/
 
-# ===== Reports and Model Artifacts =====
-reports/
+# Heavy artifacts
 models/
 processed/
+reports/
 *.pkl
 *.csv
 *.pdf
@@ -28,9 +21,8 @@ processed/
 *.jpg
 *.jpeg
 *.json
-*.ipynb_checkpoints/
 
-# ===== Streamlit Cache =====
+# Streamlit cache/logs
 .streamlit/
-cache/
 logs/
+cache/
