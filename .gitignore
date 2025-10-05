@@ -26,3 +26,4 @@ reports/
 .streamlit/
 logs/
 cache/
+.env
