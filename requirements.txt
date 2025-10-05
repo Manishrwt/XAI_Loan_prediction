@@ -1,1 +1,53 @@
-certifi==2025.8.3
+# ----------------------------
+# Core ML & Data Processing
+# ----------------------------
+numpy
+pandas
+scikit-learn
+joblib
+python-dotenv
+
+# ----------------------------
+# Gradient Boosting Models
+# ----------------------------
+catboost
+xgboost==1.7.6
+
+# ----------------------------
+# Deep Learning for Tabular Data
+# ----------------------------
+pytorch-tabnet
+
+# ----------------------------
+# Explainability & Fairness
+# ----------------------------
+shap
+lime
+fairlearn
+
+# ----------------------------
+# Visualization & Reporting
+# ----------------------------
+matplotlib
+seaborn
+reportlab
+
+# ----------------------------
+# Streamlit App & UI
+# ----------------------------
+streamlit
+streamlit-option-menu
+streamlit-authenticator
+
+# ----------------------------
+# Generative AI
+# ----------------------------
+google-generativeai
+openai
+
+# ----------------------------
+# Notes
+# ----------------------------
+# - Optimized for Streamlit Cloud deployment
+# - torch is automatically installed with pytorch-tabnet
+# - Ensure GEMINI_API_KEY and ADMIN_PASSCODE are added as secrets in Streamlit Cloud
