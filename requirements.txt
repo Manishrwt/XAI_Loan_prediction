@@ -1,3 +1,8 @@
+# ============================================================
+# Explainable AI for Loan Prediction - Full Project Requirements
+# Includes fairness, explainability, and reporting modules
+# ============================================================
+
 # ----------------------------
 # Core ML & Data Processing
 # ----------------------------
@@ -10,30 +15,36 @@ scikit-learn
 # ----------------------------
 catboost
 xgboost==1.7.6
-# lightgbm
-# Notes:
-# - On Windows/Linux: install LightGBM normally (pip install lightgbm).
-# - On macOS (without Homebrew): skip LightGBM or use
-#       pip install lightgbm --config-settings=cmake.define.USE_OPENMP=OFF
-#   to avoid libomp.dylib errors.
+# lightgbm (optional, tricky on macOS)
+# To install on macOS safely:
+# pip install lightgbm --config-settings=cmake.define.USE_OPENMP=OFF
 
 # ----------------------------
 # Deep Learning for Tabular Data
 # ----------------------------
-torch                    # PyTorch backend (needed for TabNet)
-pytorch-tabnet           # TabNet model (neural network for tabular data)
+torch
+pytorch-tabnet
 
 # ----------------------------
 # Explainability
 # ----------------------------
-shap                     # SHAP values (global + local explanations)
-lime                     # LIME explanations for individual predictions
+shap
+lime
 
 # ----------------------------
-# Fairness
+# Fairness Evaluation (Core)
 # ----------------------------
-fairlearn                # Fairness metrics (Statistical Parity, Equalized Odds, etc.)
-# aif360 (Optional, very heavy) – only add if you want IBM’s AI Fairness 360
+fairlearn               # Fairness metrics: Demographic Parity, Equalized Odds, etc.
+responsibleai           # Microsoft Responsible AI toolbox
+raiutils                # Used internally by responsibleai
+fairness-indicators     # Google’s fairness toolkit (TensorFlow-based)
+
+# ----------------------------
+# (Optional, Heavy) Advanced Fairness Metrics
+# ----------------------------
+# Uncomment if you want full IBM fairness suite (may require brew/libomp on macOS)
+# aif360==0.6.1
+# tensorflow==2.12.0
 
 # ----------------------------
 # Visualization
@@ -46,6 +57,8 @@ seaborn
 # ----------------------------
 streamlit
 streamlit-option-menu
+streamlit-authenticator>=0.3.3
+bcrypt
 
 # ----------------------------
 # Report Generation
@@ -60,15 +73,10 @@ python-dotenv
 # ----------------------------
 # Generative AI (Google Gemini + Perplexity)
 # ----------------------------
-google-generativeai       # Google Gemini API
-openai                    # Perplexity API (uses OpenAI-compatible SDK format)
+google-generativeai
+openai
 
 # ----------------------------
-# Notes
+# File Handling & Utilities
 # ----------------------------
-# - CatBoost: works everywhere (no extra config).
-# - XGBoost: pinned to 1.7.6 for macOS compatibility.
-# - LightGBM: optional. Works on Windows/Linux but tricky on macOS.
-# - On macOS: safest to skip LightGBM and rely on CatBoost + XGBoost + TabNet.
-# - Set GEMINI_API_KEY and PERPLEXITY_API_KEY in your .env file.
-
+joblib

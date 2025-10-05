@@ -1,8 +1,7 @@
 # app/app.py
 # ============================================================
-# Explainable AI for Loan Prediction - Realistic, Text-Only UI
-# Bank-style UX, no charts, with dynamic checklists, stress tests,
-# product comparison, co-applicants, robust encoders, and rich exports.
+# Explainable AI for Loan Prediction - Full Updated App
+# With SQLite database integration + Database Viewer page
 # ============================================================
 
 import os
@@ -15,11 +14,26 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from datetime import datetime
 
+# Fix import path so database package is visible
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import streamlit_authenticator as stauth
+
+
 # PDF
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
+
+# DB    
+from database.database import init_db, insert_application, fetch_recent
+import streamlit_authenticator as stauth
+
+
+# initialize DB once
+init_db()
 
 # =========================================
 # App Config
@@ -30,7 +44,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- CSS (clean, readable, no graphs) -------------
+# ---------------- CSS ----------------
 st.markdown("""
 <style>
 /* rounded info blocks */
@@ -51,10 +65,11 @@ code.mono { background:#111; color:#eee; padding:2px 6px; border-radius:6px; }
 """, unsafe_allow_html=True)
 
 # =========================================
+# =========================================
 # Constants / Defaults
 # =========================================
 
-# Sensible default rates by loan type for EMI estimation & stress tests (purely heuristic)
+# Sensible default rates by loan type
 RATE_BY_LOAN_TYPE = {
     "Home Loan": 8.5,
     "Personal Loan": 13.5,
@@ -64,21 +79,19 @@ RATE_BY_LOAN_TYPE = {
     "Other": 11.0
 }
 
-# Document checklist by employment & loan/product type
+# Document checklist
 DOCS_BASE = [
     "PAN Card",
     "Aadhaar Card / Valid ID",
     "Recent Passport-size Photograph",
     "Cancelled Cheque / Bank Details",
 ]
-
 DOCS_SALARIED = [
     "Last 3 Months Salary Slips",
     "Last 6 Months Bank Statements",
     "Last 2 Years Form 16 (if available)",
     "Employment/Offer Letter (if new job)",
 ]
-
 DOCS_SELF_EMP = [
     "Last 2 Years ITR + Computation",
     "Last 12 Months Bank Statements (Current & Savings)",
@@ -86,26 +99,22 @@ DOCS_SELF_EMP = [
     "Business Registration / Shop Act / MSME",
     "Balance Sheet & P&L (CA-audited preferred)",
 ]
-
 DOCS_HOME = [
     "Property Title / Allotment Letter / Sale Agreement",
     "Chain of Title Documents",
     "Latest Property Tax Receipt",
     "Approved Building Plan / NOC (if applicable)",
 ]
-
 DOCS_CAR = [
     "Proforma Invoice (Vehicle)",
     "RC Transfer Docs (for used car)",
     "Insurance (if renewal/refinance)"
 ]
-
 DOCS_EDU = [
     "Admission Letter",
     "Fee Structure / Prospectus",
     "Academic Records (10th/12th/Degree)",
 ]
-
 DOCS_BUSINESS_LOAN = [
     "Business Vintage Proof",
     "Trade License / Udyam / GST",
@@ -120,10 +129,19 @@ def load_assets():
     scaler = joblib.load("processed/scaler.pkl")
     label_encoders = joblib.load("processed/label_encoders.pkl")
     feature_names = joblib.load("processed/feature_names.pkl")
-    model = joblib.load("models/catboost_model.pkl")  # primary model
-    return scaler, label_encoders, feature_names, model
 
-scaler, label_encoders, feature_names, model = load_assets()
+    # Load all models
+    catboost_model = joblib.load("models/catboost_model.pkl")
+    xgboost_model = joblib.load("models/xgboost_model.pkl")
+    tabnet_model = joblib.load("models/tabnet_model.pkl")
+
+    return scaler, label_encoders, feature_names, {
+        "CatBoost": catboost_model,
+        "XGBoost": xgboost_model,
+        "TabNet": tabnet_model
+    }
+scaler, label_encoders, feature_names, models = load_assets()
+
 NUMERIC_COLS = [c for c in feature_names if c not in label_encoders]
 
 # =========================================
@@ -145,7 +163,7 @@ def _ratio(n, d, default=0.0):
     except Exception:
         return default
 
-def _bool(x):  # turns numeric or string to bool-ish
+def _bool(x):
     if isinstance(x, (int, float)): return x > 0
     if isinstance(x, str): return x.strip().lower() in {"true","yes","y","1"}
     return bool(x)
@@ -154,10 +172,8 @@ def _get_default_rate(loan_type: str) -> float:
     return RATE_BY_LOAN_TYPE.get(loan_type, RATE_BY_LOAN_TYPE["Other"])
 
 def _parse_float(x, fallback=0.0):
-    try:
-        return float(x)
-    except Exception:
-        return fallback
+    try: return float(x)
+    except Exception: return fallback
 
 # ---------- EMI helpers ----------
 def compute_emi(loan_amount: float, annual_rate: float, years: float):
@@ -308,12 +324,16 @@ def generate_reasons_and_suggestions(features: dict, pred: int):
 
     return reasons, suggestions
 
+
 # ---------- PDF Generators ----------
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
+
 def _pdf_line(c, x, y, txt, dy=0.7*cm, bold=False, size=11):
-    if bold:
-        c.setFont("Helvetica-Bold", size)
-    else:
-        c.setFont("Helvetica", size)
+    if bold: c.setFont("Helvetica-Bold", size)
+    else: c.setFont("Helvetica", size)
     c.drawString(x, y, txt)
     y -= dy
     return y
@@ -401,6 +421,7 @@ def build_bulk_pdf_from_log(df_log: pd.DataFrame) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
+
 # ---------- Encoding & Prediction Utilities ----------
 def encode_and_scale(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -428,6 +449,8 @@ def encode_and_scale(df: pd.DataFrame) -> pd.DataFrame:
     df_enc = df_enc[feature_names]
     return df_enc
 
+
+# ---------- CSV Log (still kept) ----------
 def log_prediction(applicant_name: str,
                    loan_type: str,
                    decision: str,
@@ -459,8 +482,22 @@ def log_prediction(applicant_name: str,
 with st.sidebar:
     selected = option_menu(
         "EXPLAINABLE AI",
-        ["Home", "Application Details", "Prediction", "EMI Calculator", "Report"],
-        icons=["house", "clipboard-data", "magic", "calculator", "file-earmark-text"],
+        [
+            "Home",
+            "Application Details",
+            "Prediction",
+            "EMI Calculator",
+            "Report",
+            "Database View"   # NEW
+        ],
+        icons=[
+            "house",
+            "clipboard-data",
+            "magic",
+            "calculator",
+            "file-earmark-text",
+            "database"
+        ],
         menu_icon="bank",
         default_index=0,
     )
@@ -486,13 +523,14 @@ if selected == "Home":
 1. **Application Details** – Enter the applicant's information (all features used for the model).  
 2. **Prediction** – Get a decision *with clear reasons and actionable suggestions*.  
 3. **EMI Calculator** – Estimate monthly payments and download an amortization schedule.  
-4. **Report** – View the log and download per-applicant PDF/CSV summaries, plus bulk exports.
+4. **Report** – View the log and download per-applicant PDF/CSV summaries, plus bulk exports.  
+5. **Database View** – Browse all saved applications from the SQLite database.
     """)
     with st.expander("📎 Notes & Disclaimers"):
         st.markdown("""
 - This app provides **explainable**, educational guidance. Actual underwriting varies by lender.
 - The **Quick Eligibility** is a rough estimate. Please proceed to **Application Details** for a proper evaluation.
-- We do not store documents; only the entered fields + decision logs are saved locally under `reports/`.
+- We do not store documents; only the entered fields + decision logs are saved locally under `reports/` and in a local SQLite DB under `database/loan_app.db`.
         """)
 
 elif selected == "Application Details":
@@ -502,8 +540,11 @@ elif selected == "Application Details":
     with colA:
         applicant_name = st.text_input("👤 Applicant Name", help="Enter full name as on ID.")
     with colB:
-        loan_type = st.selectbox("💳 Loan Type", ["Home Loan", "Personal Loan", "Business Loan", "Car Loan", "Education Loan", "Other"],
-                                 help="Select the loan product you’re applying for.")
+        loan_type = st.selectbox(
+            "💳 Loan Type",
+            ["Home Loan", "Personal Loan", "Business Loan", "Car Loan", "Education Loan", "Other"],
+            help="Select the loan product you’re applying for."
+        )
 
     st.divider()
     st.markdown("#### Provide feature values")
@@ -518,14 +559,13 @@ elif selected == "Application Details":
             # sensible defaults/hints
             minv = 0.0
             step = 1.0
-            placeholder = None
             if col in {"cibil_score"}:
-                minv, step, placeholder = 0.0, 1.0, 700
+                minv, step = 0.0, 1.0
             if col in {"loan_term"}:
                 st.markdown('<span class="small">Hint: If you enter >50, it will be treated as months; else years.</span>', unsafe_allow_html=True)
             ui_vals[col] = st.number_input(col, min_value=minv, step=step, value=0.0, key=f"f_{col}")
 
-    # Co-Applicant block (kept + improved)
+    # Co-Applicant block
     st.subheader("👥 Co-Applicant (Optional)")
     ui_vals["co_income"] = st.number_input("Co-Applicant Annual Income (₹)", min_value=0.0, step=10000.0)
     ui_vals["co_cibil"] = st.number_input("Co-Applicant CIBIL Score", min_value=300, max_value=900, step=1, value=700)
@@ -533,13 +573,14 @@ elif selected == "Application Details":
     # Save button
     if st.button("💾 Save Applicant Details"):
         st.session_state["applicant"] = {
-            "name": applicant_name.strip(),
+            "name": (applicant_name or "").strip(),
             "loan_type": loan_type,
             "features": ui_vals
         }
         st.success("✅ Applicant details saved. Continue to the Prediction tab.")
 
 elif selected == "Prediction":
+    
     header("Loan Approval Prediction", "🔮")
 
     if "applicant" not in st.session_state:
@@ -547,14 +588,33 @@ elif selected == "Prediction":
     else:
         app = st.session_state["applicant"]
         features = app["features"]
+    # 🧠 Select which model to use for prediction
+        model_choice = st.selectbox(
+    "Select Model for Prediction",
+    ["CatBoost", "XGBoost", "TabNet"],
+    index=0,
+    help="Choose which trained model to use for making predictions."
+)
 
         # Decision
         if st.button("Run Prediction"):
             df = pd.DataFrame([features])
             df_scaled = encode_and_scale(df)
 
-            pred = int(model.predict(df_scaled.values)[0])
-            proba = float(model.predict_proba(df_scaled.values)[0][1])
+            model = models[model_choice]
+            if model_choice == "XGBoost":
+                import xgboost as xgb
+                dtest = xgb.DMatrix(df_scaled.values)
+                y_pred_prob = model.predict(dtest)
+                proba = float(y_pred_prob[0])
+                pred = int(proba > 0.5)
+            elif model_choice == "TabNet":
+                y_pred = model.predict(df_scaled.values)
+                proba = float(model.predict_proba(df_scaled.values)[0][1])
+                pred = int(y_pred[0])
+            else:  # CatBoost
+                pred = int(model.predict(df_scaled.values)[0])
+                proba = float(model.predict_proba(df_scaled.values)[0][1])
             decision = "APPROVED" if pred == 1 else "REJECTED"
 
             # reasons & suggestions
@@ -655,8 +715,24 @@ elif selected == "Prediction":
                 "features": features
             }
 
-            # log to CSV
+            # --------- SAVE to CSV log (existing)
             log_prediction(app['name'], app['loan_type'], decision, proba, reasons, suggestions, features)
+
+            # --------- SAVE to SQLite DB (NEW)
+            try:
+                insert_application(
+                    timestamp=datetime.now().isoformat(timespec="seconds"),
+                    name=app['name'] or "N/A",
+                    loan_type=app['loan_type'],
+                    decision=decision,
+                    confidence=float(round(proba, 4)),
+                    reasons=" | ".join(reasons[:10]),
+                    suggestions=" | ".join(suggestions[:10]),
+                    features_dict=features
+                )
+                st.success("🗄️ Saved to database (SQLite).")
+            except Exception as e:
+                st.error(f"Database save failed: {e}")
 
             # downloads (current applicant)
             st.markdown("#### ⬇️ Download this decision")
@@ -801,7 +877,7 @@ elif selected == "Report":
         )
 
         # Bulk exports
-        st.markdown("### 📦 Bulk Exports (All Applicants)")
+        st.markdown("### 📄 Download All Applicant Reports")
         c1, c2 = st.columns(2)
         with c1:
             st.download_button(
@@ -811,6 +887,40 @@ elif selected == "Report":
                 mime="text/csv",
                 key="dl_all_csv"
             )
+                # ─────────────────────────────────────────────
+        # ⚖️ Model Fairness Evaluation (Simple Academic Version)
+        # ─────────────────────────────────────────────
+        import glob
+
+        st.markdown("### ⚖️ Model Fairness Evaluation")
+        st.caption("Analyze how fair or unbiased the model is across sensitive groups such as gender, marital status, and region.")
+
+        fairness_pdfs = sorted(
+            glob.glob("reports/fairness_report_*.pdf"), key=os.path.getmtime, reverse=True
+        )
+
+        if fairness_pdfs:
+            latest_pdf = fairness_pdfs[0]
+            with open(latest_pdf, "rb") as f:
+                st.download_button(
+                    label="⬇️ Download Fairness Evaluation Report (PDF)",
+                    data=f,
+                    file_name=os.path.basename(latest_pdf),
+                    mime="application/pdf",
+                    key="dl_fairness_pdf_simple"
+                )
+
+            st.success("✅ Fairness report found. You can download it above.")
+            st.markdown("""
+**Included Metrics:**
+- **Demographic Parity Difference / Ratio:** Checks if approval rates are equal across groups.  
+- **Equalized Odds Difference / Ratio:** Ensures both true positive and false positive rates are similar for all groups.  
+- **False Positive / Negative Rate Difference:** Measures bias in misclassification across groups.  
+- **Accuracy by Group:** Compares how well the model performs for each sensitive feature.
+            """)
+        else:
+            st.info("No fairness reports available yet. Run `python src/5_fairness.py` to generate one.")
+
         with c2:
             bulk_pdf = build_bulk_pdf_from_log(df_log)
             st.download_button(
@@ -820,3 +930,142 @@ elif selected == "Report":
                 mime="application/pdf",
                 key="dl_all_pdf"
             )
+                # ─────────────────────────────────────────────
+        # 📊 Model Comparison Report Download
+        # ─────────────────────────────────────────────
+        import glob
+
+        st.markdown("### 🤖 Model Comparison Report")
+        st.caption("Compare the performance of different models such as CatBoost, XGBoost, and TabNet.")
+
+        comparison_pdfs = sorted(
+            glob.glob("reports/model_comparison_*.pdf"), key=os.path.getmtime, reverse=True
+        )
+
+        if comparison_pdfs:
+            latest_pdf = comparison_pdfs[0]
+            with open(latest_pdf, "rb") as f:
+                st.download_button(
+                    label="⬇️ Download Model Comparison Report (PDF)",
+                    data=f,
+                    file_name=os.path.basename(latest_pdf),
+                    mime="application/pdf",
+                    key="dl_model_comparison_pdf"
+                )
+
+            st.success("Model comparison report found. You can download it above.")
+            st.markdown("""
+**Report Contents:**
+- Accuracy, Precision, Recall, and F1-Score for each model  
+- ROC-AUC comparison  
+- Confusion matrices (visual or numeric)  
+- Training vs Testing time summary  
+- Fairness overview for each model  
+            """)
+        else:
+            st.info("No model comparison report found. Please generate it by running your evaluation script (e.g., `python src/6_model_comparison.py`).")
+
+
+
+elif selected == "Database View":
+    header("Database Viewer", "🗄️")
+
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    # Read passcode from .env
+    ADMIN_PASSCODE = os.getenv("ADMIN_PASSCODE", "")
+
+    st.markdown("### 🔐 Admin Access Required")
+    st.caption("Enter the secret admin passcode to view stored applications.")
+
+    pass_input = st.text_input("Enter admin passcode:", type="password", key="admin_passcode")
+
+    if st.button("Unlock Database"):
+        if pass_input == ADMIN_PASSCODE and ADMIN_PASSCODE != "":
+            st.success("✅ Access granted. Welcome, Admin!")
+
+            rows = fetch_recent(200)
+            if rows:
+                df_db = pd.DataFrame(rows, columns=[
+                    "id", "timestamp", "Applicant", "Loan_Type", "Decision",
+                    "Confidence", "Reasons", "Suggestions", "Features"
+                ])
+                st.dataframe(df_db, use_container_width=True)
+
+                st.download_button(
+                    "⬇️ Download DB Data as CSV",
+                    df_db.to_csv(index=False).encode("utf-8"),
+                    file_name="loan_applications_db.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("No records found in the database yet.")
+        elif pass_input.strip() == "":
+            st.warning("⚠️ Please enter the passcode.")
+        else:
+            st.error("❌ Incorrect passcode. Access denied.")
+            # Log failed attempt
+            os.makedirs("logs", exist_ok=True)
+            with open("logs/failed_logins.txt", "a") as f:
+                f.write(f"[{datetime.now().isoformat()}] Failed DB login attempt\n")
+
+# ============================================================
+# 🌐 MODERN FLOATING FOOTER (Interactive + Auto-Hide)
+# ============================================================
+from datetime import datetime
+
+LAST_UPDATED = datetime.now().strftime("%B %d, %Y")
+
+st.markdown("""
+<style>
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: -120px; /* hidden by default */
+    width: 100%;
+    background: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
+    color: #f1f1f1;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 12px 0;
+    border-top: 1px solid #444;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+    z-index: 100;
+    transition: bottom 0.5s ease-in-out;
+    opacity: 0.95;
+}
+.footer:hover {
+    bottom: 0; /* slide up on hover */
+    opacity: 1;
+}
+.footer a {
+    color: #58caff;
+    text-decoration: none;
+    font-weight: 500;
+}
+.footer a:hover {
+    text-decoration: underline;
+    color: #90e0ef;
+}
+.icon {
+    margin: 0 6px;
+    font-size: 18px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="footer">
+    <b>🏦 Explainable AI for Loan Prediction </b><br>
+    Developed by <b>Manish Rawat</b> | M.Tech in AI & ML (2024–2026), VIT Vellore<br>
+    <span class="icon">📧</span> <a href="mailto:manish2018rewa@gmail.com" target="_blank">manish2018rewa@gmail.com</a> |
+    <span class="icon">📞</span> <a href="tel:+916263377546">+91 62633 77546</a> |
+    <span class="icon">💼</span> <a href="https://www.linkedin.com/in/manish-rawat-" target="_blank">LinkedIn Profile</a><br>
+    <span style="font-size:14px; color:#ccc;">
+        Last Updated: <b>{LAST_UPDATED}</b> | Build Version: <b>v1.2.0</b>
+    </span><br>
+    © 2025 <b>Manish Rawat</b> | All Rights Reserved
+</div>
+""", unsafe_allow_html=True)
