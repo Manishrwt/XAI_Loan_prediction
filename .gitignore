@@ -1,20 +1,36 @@
-# Ignore environment and caches
-loan_env/
+# ===== Python & Environment =====
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.DS_Store
-.env
-
-# Ignore reports and database
-reports/
-database/loan_app.db
-
-# Ignore temporary logs and notebooks
-logs/
-*.ipynb_checkpoints/
+*.db
+*.env
 *.log
+.DS_Store
 
-# Ignore requirements (we’ll add it later manually)
-requirements.txt
+# ===== Virtual Environment =====
+loan_env/
+venv/
+env/
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ===== Reports and Model Artifacts =====
+reports/
+models/
+processed/
+*.pkl
+*.csv
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.json
+*.ipynb_checkpoints/
+
+# ===== Streamlit Cache =====
+.streamlit/
+cache/
+logs/
