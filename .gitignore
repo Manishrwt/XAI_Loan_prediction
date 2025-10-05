@@ -1,0 +1,20 @@
+# Ignore environment and caches
+loan_env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.env
+
+# Ignore reports and database
+reports/
+database/loan_app.db
+
+# Ignore temporary logs and notebooks
+logs/
+*.ipynb_checkpoints/
+*.log
+
+# Ignore requirements (we’ll add it later manually)
+requirements.txt
