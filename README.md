@@ -68,7 +68,7 @@ LOAN_PREDICTION/
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Loan_Prediction_App.git
+   git clone https://github.com/Manishrwt/XAI_Loan_prediction.git
    cd Loan_Prediction_App
 
 2. Create & activate virtual environment:
