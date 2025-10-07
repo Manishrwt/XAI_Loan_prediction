@@ -65,11 +65,12 @@ LOAN_PREDICTION/
 ---
 
 ## ⚙️ Installation
-
+----- app link -------------
+https://xailoanprediction-dty8wafucnhefklxq5dk4b.streamlit.app/
 1. Clone the repo:
    ```bash
    git clone https://github.com/Manishrwt/XAI_Loan_prediction.git
-   cd Loan_Prediction_App
+   
 
 2. Create & activate virtual environment:
 
